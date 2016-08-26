@@ -46,6 +46,7 @@ const (
 	rootVolumeName        = "root-volume"
 	defaultDiskNumber     = -1
 	defaultVirtio9p       = false
+	defaultPort           = 2376
 )
 
 type Driver struct {
@@ -64,6 +65,7 @@ type Driver struct {
 	DiskNumber     int
 	Virtio9p       bool
 	Virtio9pFolder string
+	Port           int
 }
 
 var (
@@ -91,6 +93,7 @@ func NewDriver(hostName, storePath string) *Driver {
 		NFSShare:       defaultNFSShare,
 		DiskNumber:     defaultDiskNumber,
 		Virtio9p:       defaultVirtio9p,
+		Port:           defaultPort,
 	}
 }
 
@@ -144,6 +147,12 @@ func (d *Driver) GetCreateFlags() []mcnflag.Flag {
 			Usage:  "The UUID for the machine",
 			Value:  defaultUUID,
 		},
+		mcnflag.StringFlag{
+			EnvVar: "XHYVE_PORT",
+			Name:   "xhyve-port",
+			Usage:  "The PORT for the machine",
+			Value:  defaultPort,
+		}
 	}
 }
 
@@ -194,6 +203,7 @@ func (d *Driver) SetConfigFromFlags(flags drivers.DriverOptions) error {
 	d.Virtio9pFolder = "/Users"
 	d.NFSShare = flags.Bool("xhyve-experimental-nfs-share")
 	d.UUID = flags.String("xhyve-uuid")
+	d.Port = flags.Int("xhyve-port")
 
 	return nil
 }
@@ -233,6 +243,11 @@ func (d *Driver) GetURL() (string, error) {
 		return "", nil
 	}
 
+	port := d.Port
+	if port == nil {
+		port = 2376
+	}
+
 	// Wait for SSH over NAT to be available before returning to user
 	for {
 		err := drivers.WaitForSSH(d)
@@ -243,7 +258,7 @@ func (d *Driver) GetURL() (string, error) {
 		}
 	}
 
-	return fmt.Sprintf("tcp://%s:2376", ip), nil
+	return fmt.Sprintf("tcp://%s:%s", ip, port), nil
 }
 
 func (d *Driver) GetIP() (string, error) {
